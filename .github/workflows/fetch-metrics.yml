@@ -2,7 +2,7 @@ name: Fetch DORA Metrics
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '*/1 * * * *'  # Every hour
   workflow_dispatch:
 
 jobs:
