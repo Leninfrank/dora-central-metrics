@@ -1,12 +1,12 @@
-name: Fetch DORA Metrics
+name: Collect DORA Metrics
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
-  workflow_dispatch:      # Allow manual runs
+    - cron: "0 0 * * *"  # runs daily at midnight UTC
+  workflow_dispatch:     # allows manual trigger
 
 jobs:
-  fetch:
+  fetch-and-push:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,23 +16,30 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install requests
 
-      - name: Run DORA metrics collector
+      - name: Run metrics collector
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: python scripts/collect_metrics.py
 
-      - name: Commit and push updated metrics
-        env:
-          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      - name: Configure Git identity
         run: |
           git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git remote set-url origin https://x-access-token:$PAT@github.com/Leninfrank/dora-central-metrics.git
+          git config user.email "github-actions@github.com"
+
+      - name: Set up authenticated remote
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
+
+      - name: Pull latest main branch
+        run: git pull origin main --rebase
+
+      - name: Commit and push updated metrics
+        run: |
           git add data/metrics.json
-          git commit -m "Update metrics" || echo "No changes"
-          git push origin HEAD:main
+          git commit -m "Update metrics"
+          git push origin main
