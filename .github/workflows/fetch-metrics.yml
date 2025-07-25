@@ -26,12 +26,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: python scripts/collect_metrics.py
 
-      - name: Commit and push metrics
+      - name: Commit and push updated metrics
         env:
           PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:$PAT@github.com/Leninfrank/dora-central-metrics.git
           git add data/metrics.json
           git commit -m "Update metrics" || echo "No changes"
-          git push https://$PAT@github.com/Leninfrank/dora-central-metrics.git HEAD:main
+          git push origin HEAD:main
