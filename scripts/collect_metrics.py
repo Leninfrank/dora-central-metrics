@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
     raise EnvironmentError("GITHUB_TOKEN not set")
-HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
 BASE_URL = "https://api.github.com"
 
 def check_rate_limit():
