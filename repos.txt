@@ -1,3 +1,1 @@
-Leninfrank/DORA-central
-Leninfrank/next.js
-Leninfrank/python
+vercel/next.js
