@@ -22,7 +22,7 @@ jobs:
 
       - name: Run collector
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: python collect_metrics.py
 
       - name: Commit and Push
