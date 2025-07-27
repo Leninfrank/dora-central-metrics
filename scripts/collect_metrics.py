@@ -3,7 +3,7 @@ import yaml
 import json
 from datetime import datetime
 
-GITHUB_TOKEN = {secret.PERSONAL_ACCESS_TOKEN}
+GITHUB_TOKEN = {secrets.PERSONAL_ACCESS_TOKEN}
 
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
