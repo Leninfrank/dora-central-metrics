@@ -28,7 +28,16 @@ def get_commits(owner, repo):
 def get_pull_requests(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state=closed"
     r = requests.get(url, headers=HEADERS)
-    return r.json()
+    try:
+        data = r.json()
+    except Exception:
+        raise Exception(f"Failed to parse response: {r.text}")
+
+    if isinstance(data, dict) and "message" in data:
+        raise Exception(f"GitHub API error: {data['message']}")
+    if not isinstance(data, list):
+        raise Exception(f"Unexpected response type: {type(data)}")
+    return data
 
 def calculate_dora_metrics(owner, repo):
     deployments = get_deployments(owner, repo)
@@ -38,11 +47,11 @@ def calculate_dora_metrics(owner, repo):
     lead_times = []
 
     for pr in prs:
-        if pr.get("merged_at") and pr.get("created_at"):
-            created = datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
-            merged = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
-            lead_times.append((merged - created).total_seconds())
-
+        if isinstance(pr, dict) and pr.get("merged_at") and pr.get("created_at"):
+        created = datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
+        merged = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
+        lead_times.append((merged - created).total_seconds())
+        
     avg_lead_time = sum(lead_times) / len(lead_times) / 3600 if lead_times else 0
 
     return {
