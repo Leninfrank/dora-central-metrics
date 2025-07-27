@@ -38,9 +38,17 @@ jobs:
           git add metrics/
           git commit -m "Update metrics for ${{ github.event.client_payload.repo }}" || echo "No changes to commit"
 
+      - name: Stash changes before pull
+        run: |
+          git stash --include-untracked
+
       - name: Pull latest changes with rebase
         run: |
           git pull origin main --rebase
+
+      - name: Pop stashed changes
+        run: |
+          git stash pop || echo "No stash to pop"
 
       - name: Push updated metrics
         run: |
