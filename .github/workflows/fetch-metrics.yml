@@ -38,6 +38,9 @@ jobs:
           git add metrics/
           git commit -m "Update metrics for ${{ github.event.client_payload.repo }}" || echo "No changes to commit"
 
+      - name: Ensure clean workspace
+        run: git reset --hard && git clean -fdx
+      
       - name: Stash changes before pull
         run: git stash --include-untracked
 
