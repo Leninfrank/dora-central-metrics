@@ -1,84 +1,67 @@
-import requests, json, os
-from datetime import datetime, timedelta
+import sys
+import os
+import json
+from datetime import datetime, timezone
+from github import Github
 
-# Setup GitHub API access
+# GitHub Token must be stored in secrets or env
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
-    raise EnvironmentError("GITHUB_TOKEN not set")
-HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
-BASE_URL = "https://api.github.com"
+    print("❌ Error: GITHUB_TOKEN not set")
+    sys.exit(1)
 
-def check_rate_limit():
-    url = f"{BASE_URL}/rate_limit"
-    res = requests.get(url, headers=HEADERS)
-    print("⏳ Rate Limit:", res.json())
+# Initialize GitHub client
+gh = Github(GITHUB_TOKEN)
 
-def get_commit_count(owner, repo, since):
-    url = f"{BASE_URL}/repos/{owner}/{repo}/commits?since={since}&per_page=100"
-    res = requests.get(url, headers=HEADERS)
-    if res.status_code != 200:
-        print(f"❌ Failed to fetch commits for {repo}: {res.status_code}")
-        print(res.text)
-        return 0
-    return len(res.json())
+# Get target repo from command-line argument
+if len(sys.argv) < 2:
+    print("❌ Usage: python collect_metrics.py <org/repo>")
+    sys.exit(1)
 
-def get_pr_lead_time(owner, repo):
-    url = f"{BASE_URL}/repos/{owner}/{repo}/pulls?state=closed&per_page=100"
-    res = requests.get(url, headers=HEADERS)
+repo_name = sys.argv[1]
+try:
+    repo = gh.get_repo(repo_name)
+except Exception as e:
+    print(f"❌ Error accessing repo {repo_name}: {e}")
+    sys.exit(1)
 
-    try:
-        prs = res.json()
-    except Exception as e:
-        print(f"❌ Failed to parse PRs JSON for {repo}: {e}")
-        print(res.text)
-        return 0
+print(f"📦 Collecting DORA metrics for: {repo_name}")
 
-    if not isinstance(prs, list):
-        print(f"❌ Unexpected response for PRs in {repo}: {prs}")
-        return 0
+# -- Deployment Frequency (number of deployments in last 7 days) --
+deployments = repo.get_deployments()
+deployment_count = 0
+one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+for d in deployments:
+    if d.created_at >= one_week_ago:
+        deployment_count += 1
 
-    times = []
-    for pr in prs:
-        if isinstance(pr, dict) and pr.get("merged_at"):
-            created = datetime.strptime(pr["created_at"], "%Y-%m-%dT%H:%M:%SZ")
-            merged = datetime.strptime(pr["merged_at"], "%Y-%m-%dT%H:%M:%SZ")
-            times.append((merged - created).total_seconds())
+# -- Lead Time for Changes (avg time from PR created to merged) --
+pulls = repo.get_pulls(state='closed')
+lead_times = []
+for pr in pulls:
+    if pr.merged and pr.created_at and pr.merged_at:
+        delta = pr.merged_at - pr.created_at
+        lead_times.append(delta.total_seconds() / 3600)  # hours
 
-    return round(sum(times) / len(times) / 3600, 2) if times else 0
+avg_lead_time_hours = round(sum(lead_times) / len(lead_times), 2) if lead_times else 0
 
-def main():
-    print("🔎 Starting DORA metrics collection...")
-    check_rate_limit()
+# -- Change Failure Rate (optional: assume 10% of deployments fail) --
+# For a real implementation, check status of deployments or reverts
+change_failure_rate = 0.1  # placeholder
 
-    # Read list of repos
-    if not os.path.exists("repos.txt"):
-        raise FileNotFoundError("repos.txt file not found")
-    
-    with open("repos.txt") as f:
-        repos = [line.strip() for line in f if line.strip()]
+# Save metrics
+metrics = {
+    "repository": repo_name,
+    "deployment_frequency": deployment_count,
+    "average_lead_time_hours": avg_lead_time_hours,
+    "change_failure_rate": change_failure_rate,
+    "timestamp_collected": datetime.now(timezone.utc).isoformat()
+}
 
-    since = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
-    results = []
+# Write to metrics/<repo>.json
+os.makedirs("metrics", exist_ok=True)
+out_file = f"metrics/{repo_name.replace('/', '__')}.json"
+with open(out_file, "w") as f:
+    json.dump(metrics, f, indent=2)
 
-    for repo in repos:
-        print(f"📦 Processing {repo}...")
-        owner, name = repo.split("/")
-        try:
-            deployment_freq = get_commit_count(owner, name, since)
-            lead_time = get_pr_lead_time(owner, name)
-            results.append({
-                "repo": repo,
-                "deployment_frequency": deployment_freq,
-                "lead_time_hours": lead_time
-            })
-        except Exception as e:
-            print(f"❌ Error processing {repo}: {e}")
-
-    os.makedirs("data", exist_ok=True)
-    with open("data/metrics.json", "w") as f:
-        json.dump(results, f, indent=2)
-
-    print("✅ Metrics collection complete. Results saved to data/metrics.json")
-
-if __name__ == "__main__":
-    main()
+print(f"✅ Metrics written to {out_file}")
