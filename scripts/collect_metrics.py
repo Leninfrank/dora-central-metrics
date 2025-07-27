@@ -48,9 +48,9 @@ def calculate_dora_metrics(owner, repo):
 
     for pr in prs:
         if isinstance(pr, dict) and pr.get("merged_at") and pr.get("created_at"):
-        created = datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
-        merged = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
-        lead_times.append((merged - created).total_seconds())
+            created = datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00"))
+            merged = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
+            lead_times.append((merged - created).total_seconds())
         
     avg_lead_time = sum(lead_times) / len(lead_times) / 3600 if lead_times else 0
 
